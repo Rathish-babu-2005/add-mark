@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Mark List</title>
+    
+    <!-- Firebase v9+ -->
+    <script type="module">
+        // Import Firebase Modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, set, remove, get, child } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxi3kMVspuvGfkP2E9QUhbDysvizAiYHs",
+            authDomain: "campusmarksheet.firebaseapp.com",
+            databaseURL: "https://campusmarksheet-default-rtdb.firebaseio.com/",
+            projectId: "campusmarksheet",
+            storageBucket: "campusmarksheet.appspot.com",
+            messagingSenderId: "549517495729",
+            appId: "1:549517495729:web:809de9f8bf158159a5c190"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Function to Calculate CGPA
+        function calculateCGPA(marks) {
+            return (marks / 10).toFixed(2);
+        }
+
+        // Function to Calculate Grade
+        function calculateGrade(percentage) {
+            if (percentage >= 90) return 'A+';
+            else if (percentage >= 80) return 'A';
+            else if (percentage >= 70) return 'B+';
+            else if (percentage >= 60) return 'B';
+            else if (percentage >= 50) return 'C';
+            else return 'F';
+        }
+
+        // Function to Add Student Marks
+        window.addMarks = function () {
+            let rollNo = document.getElementById("rollNo").value.trim();
+            let name = document.getElementById("studentName").value.trim();
+            let phpMarks = parseInt(document.getElementById("phpMarks").value) || 0;
+            let osMarks = parseInt(document.getElementById("osMarks").value) || 0;
+            let iotMarks = parseInt(document.getElementById("iotMarks").value) || 0;
+
+            if (!rollNo || !name) {
+                alert("Please enter both Roll No and Name.");
+                return;
+            }
+
+            let totalMarks = phpMarks + osMarks + iotMarks;
+            let percentage = ((totalMarks / 300) * 100).toFixed(2);
+            let cgpa = calculateCGPA(totalMarks / 3);
+            let grade = calculateGrade(percentage);
+
+            let studentData = {
+                rollNo, name, phpMarks, osMarks, iotMarks, total: totalMarks, percentage, cgpa, grade
+            };
+
+            // Store Data in Firebase
+            set(ref(db, "students/" + rollNo), studentData)
+                .then(() => {
+                    alert("Marks added successfully!");
+                    document.getElementById("markForm").reset();
+                    loadMarks();
+                })
+                .catch((error) => {
+                    alert("Error saving data: " + error);
+                });
+        }
+
+        // Function to Remove Student
+        window.removeStudent = function (rollNo) {
+            remove(ref(db, "students/" + rollNo))
+                .then(() => {
+                    alert("Student removed successfully!");
+                    loadMarks();
+                })
+                .catch((error) => {
+                    alert("Error removing student: " + error);
+                });
+        }
+
+        // Function to View Student Marks
+        window.viewMarks = function (rollNo) {
+            const studentRef = ref(db, "students/" + rollNo);
+            get(studentRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let student = snapshot.val();
+                    alert(`Student: ${student.name}\nRoll No: ${student.rollNo}\nPHP: ${student.phpMarks}\nOS: ${student.osMarks}\nIoT: ${student.iotMarks}\nTotal: ${student.total}\nPercentage: ${student.percentage}%\nCGPA: ${student.cgpa}\nGrade: ${student.grade}`);
+                } else {
+                    alert("Student not found.");
+                }
+            }).catch((error) => {
+                alert("Error fetching student data: " + error);
+            });
+        };
+
+        // Function to Load Student Marks
+        function loadMarks() {
+            let table = document.getElementById("marksTable");
+            table.innerHTML = `
+                <tr>
+                    <th>Roll No</th>
+                    <th>Name</th>
+                    <th>PHP</th>
+                    <th>OS</th>
+                    <th>IoT</th>
+                    <th>Total</th>
+                    <th>Percentage</th>
+                    <th>CGPA</th>
+                    <th>Grade</th>
+                    <th>Actions</th>
+                </tr>`;
+
+            const dbRef = ref(db, "students");
+
+            get(dbRef)
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        snapshot.forEach((childSnapshot) => {
+                            let student = childSnapshot.val();
+                            let newRow = table.insertRow(-1);
+                            newRow.innerHTML = `
+                                <td>${student.rollNo}</td>
+                                <td>${student.name}</td>
+                                <td>${student.phpMarks}</td>
+                                <td>${student.osMarks}</td>
+                                <td>${student.iotMarks}</td>
+                                <td>${student.total}</td>
+                                <td>${student.percentage}%</td>
+                                <td>${student.cgpa}</td>
+                                <td>${student.grade}</td>
+                                <td>
+                                    <button onclick="viewMarks('${student.rollNo}')">View</button>
+                                    <button onclick="removeStudent('${student.rollNo}')">Remove</button>
+                                </td>`;
+                        });
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error fetching data: " + error);
+                });
+        }
+
+        window.onload = loadMarks;
+    </script>
+
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        table { width: 80%; margin: auto; border-collapse: collapse; }
+        th, td { border: 1px solid black; padding: 10px; }
+        button { margin: 5px; padding: 8px; cursor: pointer; border: none; background-color: #007bff; color: white; border-radius: 5px; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <h2>Student Mark List</h2>
+
+    <button onclick="window.print()" style="margin-bottom: 10px; padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">
+        🖨️ Print Mark Sheet
+    </button>
+
+    <h3>Add Student Marks</h3>
+    <form id="markForm">
+        <input type="text" id="rollNo" placeholder="Enter Roll No" required>
+        <input type="text" id="studentName" placeholder="Enter Name" required>
+        <input type="number" id="phpMarks" placeholder="Marks in PHP" min="0" max="100">
+        <input type="number" id="osMarks" placeholder="Marks in OS" min="0" max="100">
+        <input type="number" id="iotMarks" placeholder="Marks in IoT" min="0" max="100">
+        <button type="button" onclick="addMarks()">Add Marks</button>
+    </form>
+
+    <h3>Student Marks</h3>
+    <table id="marksTable"></table>
+
+</body>
+</html>
